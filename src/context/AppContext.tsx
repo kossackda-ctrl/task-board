@@ -1,7 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import { AppState, Task, Project, MemoEntry, loadState, saveState, uid } from '@/lib/store';
+import React, { createContext, useContext, useEffect, useReducer, useRef } from 'react';
+import { AppState, Task, Project, MemoEntry, DEFAULT_STATE, loadState, saveState, uid } from '@/lib/store';
 
 type Action =
   | { type: 'ADD_PROJECT'; payload: Omit<Project, 'id'> }
@@ -11,7 +11,9 @@ type Action =
   | { type: 'DELETE_TASK'; payload: string }
   | { type: 'COMPLETE_TASK'; payload: string }
   | { type: 'ADD_MEMO'; payload: Omit<MemoEntry, 'id' | 'createdAt'> }
-  | { type: 'SET_COLUMN_NAMES'; payload: AppState['columnNames'] };
+  | { type: 'SET_COLUMN_NAMES'; payload: AppState['columnNames'] }
+  | { type: 'LOAD_STATE'; payload: AppState }
+  | { type: 'RESET_STARS' };
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -46,6 +48,10 @@ function reducer(state: AppState, action: Action): AppState {
       };
     case 'SET_COLUMN_NAMES':
       return { ...state, columnNames: action.payload };
+    case 'LOAD_STATE':
+      return action.payload;
+    case 'RESET_STARS':
+      return { ...state, stars: 0 };
     default:
       return state;
   }
@@ -57,9 +63,16 @@ const AppContext = createContext<{
 } | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, loadState);
+  const [state, dispatch] = useReducer(reducer, DEFAULT_STATE);
+  const initialized = useRef(false);
 
   useEffect(() => {
+    if (!initialized.current) {
+      initialized.current = true;
+      const saved = loadState();
+      dispatch({ type: 'LOAD_STATE', payload: saved });
+      return;
+    }
     saveState(state);
   }, [state]);
 

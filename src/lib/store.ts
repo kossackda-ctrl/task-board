@@ -41,7 +41,7 @@ export interface AppState {
   columnNames: ColumnNames;
 }
 
-const DEFAULT_STATE: AppState = {
+export const DEFAULT_STATE: AppState = {
   projects: [
     { id: '1', name: '夏休みの宿題', emoji: '📚', color: '#ef5350' },
     { id: '2', name: 'お手伝いリスト', emoji: '🏠', color: '#42a5f5' },

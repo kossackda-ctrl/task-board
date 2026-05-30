@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
+import { getLevel } from '@/lib/levels';
 
 const COLORS = [
   '#ef5350','#42a5f5','#66bb6a','#ffa726','#ab47bc','#26c6da','#ec407a','#8d6e63',
@@ -11,6 +12,7 @@ const EMOJIS = ['📚','🏠','🔬','⭐','🎯','📌','🎨','🚀','💡','�
 
 export default function SettingsPage() {
   const { state, dispatch } = useApp();
+  const lv = getLevel(state.stars);
 
   const [name, setName] = useState('');
   const [color, setColor] = useState(COLORS[0]);
@@ -111,6 +113,25 @@ export default function SettingsPage() {
               </button>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* スターリセット */}
+      <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm">
+        <h2 className="text-sm font-extrabold text-indigo-700 mb-4 pb-2 border-b-2 border-indigo-100">
+          ⭐ レベルをリセットする
+        </h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-bold text-gray-700">{lv.name}</div>
+            <div className="text-xs text-gray-400 mt-0.5">⭐ {state.stars} 個</div>
+          </div>
+          <button
+            onClick={() => { if (confirm('スターを0にリセットしますか？')) dispatch({ type: 'RESET_STARS' }); }}
+            className="text-xs font-bold bg-red-100 hover:bg-red-500 hover:text-white text-red-600 px-4 py-2 rounded-xl transition-colors"
+          >
+            リセット
+          </button>
         </div>
       </div>
 
