@@ -1,7 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useReducer, useRef } from 'react';
-import { AppState, Task, Project, MemoEntry, DEFAULT_STATE, loadState, saveState, uid } from '@/lib/store';
+import React, { createContext, useContext, useEffect, useReducer, useState } from 'react';
+import { AppState, Task, Project, MemoEntry, DEFAULT_STATE, uid } from '@/lib/store';
+import { loadFromDB, saveToDB } from '@/lib/firebase';
 
 type Action =
   | { type: 'ADD_PROJECT'; payload: Omit<Project, 'id'> }
@@ -64,17 +65,28 @@ const AppContext = createContext<{
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, DEFAULT_STATE);
-  const initialized = useRef(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!initialized.current) {
-      initialized.current = true;
-      const saved = loadState();
+    loadFromDB().then(saved => {
       dispatch({ type: 'LOAD_STATE', payload: saved });
-      return;
+      setLoading(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      saveToDB(state);
     }
-    saveState(state);
-  }, [state]);
+  }, [state, loading]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-indigo-50">
+        <div className="text-indigo-400 text-lg font-bold animate-pulse">読み込み中...</div>
+      </div>
+    );
+  }
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>
