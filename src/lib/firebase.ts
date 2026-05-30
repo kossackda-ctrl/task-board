@@ -15,11 +15,25 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const db = getFirestore(app);
-const stateRef = doc(db, 'app', 'state');
 
-export async function loadFromDB(): Promise<AppState> {
+const ROOM_KEY = 'task-board-room';
+
+export function getSavedRoomCode(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(ROOM_KEY);
+}
+
+export function saveRoomCode(code: string): void {
+  localStorage.setItem(ROOM_KEY, code);
+}
+
+export function clearRoomCode(): void {
+  localStorage.removeItem(ROOM_KEY);
+}
+
+export async function loadFromDB(roomCode: string): Promise<AppState> {
   try {
-    const snap = await getDoc(stateRef);
+    const snap = await getDoc(doc(db, 'app', roomCode));
     if (!snap.exists()) return DEFAULT_STATE;
     return { ...DEFAULT_STATE, ...snap.data() } as AppState;
   } catch {
@@ -27,9 +41,9 @@ export async function loadFromDB(): Promise<AppState> {
   }
 }
 
-export async function saveToDB(state: AppState): Promise<void> {
+export async function saveToDB(roomCode: string, state: AppState): Promise<void> {
   try {
-    await setDoc(stateRef, state);
+    await setDoc(doc(db, 'app', roomCode), state);
   } catch {
     // ネットワークエラーは無視
   }

@@ -11,7 +11,7 @@ const COLORS = [
 const EMOJIS = ['📚','🏠','🔬','⭐','🎯','📌','🎨','🚀','💡','🏆','🦄','🌈'];
 
 export default function SettingsPage() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, roomCode, changeRoom } = useApp();
   const lv = getLevel(state.stars);
 
   const [name, setName] = useState('');
@@ -131,6 +131,25 @@ export default function SettingsPage() {
             className="text-xs font-bold bg-red-100 hover:bg-red-500 hover:text-white text-red-600 px-4 py-2 rounded-xl transition-colors"
           >
             リセット
+          </button>
+        </div>
+      </div>
+
+      {/* 合言葉 */}
+      <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm">
+        <h2 className="text-sm font-extrabold text-indigo-700 mb-4 pb-2 border-b-2 border-indigo-100">
+          🔑 合言葉
+        </h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-bold text-gray-700">{roomCode}</div>
+            <div className="text-xs text-gray-400 mt-0.5">現在の合言葉</div>
+          </div>
+          <button
+            onClick={() => { if (confirm('合言葉を変えますか？\n（現在のデータは引き続き保存されています）')) changeRoom(); }}
+            className="text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-xl transition-colors"
+          >
+            変える
           </button>
         </div>
       </div>

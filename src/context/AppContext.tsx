@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useReducer, useState } from 'react';
 import { AppState, Task, Project, MemoEntry, DEFAULT_STATE, uid } from '@/lib/store';
-import { loadFromDB, saveToDB } from '@/lib/firebase';
+import { loadFromDB, saveToDB, getSavedRoomCode, saveRoomCode, clearRoomCode } from '@/lib/firebase';
+import RoomEntry from '@/components/RoomEntry';
 
 type Action =
   | { type: 'ADD_PROJECT'; payload: Omit<Project, 'id'> }
@@ -61,24 +62,54 @@ function reducer(state: AppState, action: Action): AppState {
 const AppContext = createContext<{
   state: AppState;
   dispatch: React.Dispatch<Action>;
+  roomCode: string;
+  changeRoom: () => void;
 } | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, DEFAULT_STATE);
+  const [roomCode, setRoomCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadFromDB().then(saved => {
-      dispatch({ type: 'LOAD_STATE', payload: saved });
+    const saved = getSavedRoomCode();
+    if (saved) {
+      setRoomCode(saved);
+    } else {
       setLoading(false);
-    });
+    }
   }, []);
 
   useEffect(() => {
-    if (!loading) {
-      saveToDB(state);
+    if (!roomCode) return;
+    setLoading(true);
+    loadFromDB(roomCode).then(saved => {
+      dispatch({ type: 'LOAD_STATE', payload: saved });
+      setLoading(false);
+    });
+  }, [roomCode]);
+
+  useEffect(() => {
+    if (!loading && roomCode) {
+      saveToDB(roomCode, state);
     }
-  }, [state, loading]);
+  }, [state, loading, roomCode]);
+
+  const enterRoom = (code: string) => {
+    saveRoomCode(code);
+    setRoomCode(code);
+  };
+
+  const changeRoom = () => {
+    clearRoomCode();
+    setRoomCode(null);
+    dispatch({ type: 'LOAD_STATE', payload: DEFAULT_STATE });
+    setLoading(false);
+  };
+
+  if (!roomCode) {
+    return <RoomEntry onEnter={enterRoom} />;
+  }
 
   if (loading) {
     return (
@@ -89,7 +120,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <AppContext.Provider value={{ state, dispatch, roomCode, changeRoom }}>
       {children}
     </AppContext.Provider>
   );
