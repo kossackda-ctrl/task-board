@@ -31,14 +31,10 @@ export function clearRoomCode(): void {
   localStorage.removeItem(ROOM_KEY);
 }
 
-export async function loadFromDB(roomCode: string): Promise<AppState> {
-  try {
-    const snap = await getDoc(doc(db, 'app', roomCode));
-    if (!snap.exists()) return DEFAULT_STATE;
-    return { ...DEFAULT_STATE, ...snap.data() } as AppState;
-  } catch {
-    return DEFAULT_STATE;
-  }
+export async function loadFromDB(roomCode: string): Promise<AppState | null> {
+  const snap = await getDoc(doc(db, 'app', roomCode));
+  if (!snap.exists()) return null;
+  return { ...DEFAULT_STATE, ...snap.data() } as AppState;
 }
 
 export async function saveToDB(roomCode: string, state: AppState): Promise<void> {

@@ -43,6 +43,21 @@ export default function Home() {
         </div>
       </div>
 
+      {/* 管理者メッセージ */}
+      {state.adminMessage?.text && (
+        <div className="bg-white rounded-2xl p-5 mb-6 shadow-sm border-l-4 border-indigo-400">
+          <div className="text-xs font-bold text-indigo-500 mb-2">📢 管理者からのお知らせ</div>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">{state.adminMessage.text}</p>
+          {state.adminMessage.imageUrl && (
+            <img
+              src={state.adminMessage.imageUrl}
+              alt="お知らせ画像"
+              className="mt-3 rounded-xl max-w-full"
+            />
+          )}
+        </div>
+      )}
+
       {/* プロジェクト一覧 */}
       <p className="text-base text-gray-500 mb-4 font-semibold">プロジェクトを選んでね 👇</p>
 

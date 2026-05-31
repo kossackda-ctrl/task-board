@@ -4,9 +4,10 @@ import { useState } from 'react';
 
 interface Props {
   onEnter: (code: string) => void;
+  error?: string | null;
 }
 
-export default function RoomEntry({ onEnter }: Props) {
+export default function RoomEntry({ onEnter, error }: Props) {
   const [code, setCode] = useState('');
 
   const handleSubmit = () => {
@@ -21,6 +22,11 @@ export default function RoomEntry({ onEnter }: Props) {
         <div className="text-6xl mb-4">🔑</div>
         <h1 className="text-xl font-extrabold text-indigo-700 mb-2">タスクボードへようこそ</h1>
         <p className="text-sm text-gray-400 mb-6">グループの合言葉を入力してね</p>
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 text-sm font-bold rounded-xl px-4 py-2 mb-4">
+            ❌ {error}
+          </div>
+        )}
         <input
           className="w-full border-2 border-indigo-200 rounded-xl px-4 py-3 text-center text-lg font-bold outline-none focus:border-indigo-500 mb-4"
           value={code}

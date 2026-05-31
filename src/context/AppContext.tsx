@@ -73,6 +73,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, DEFAULT_STATE);
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [roomError, setRoomError] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = getSavedRoomCode();
@@ -87,7 +88,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!roomCode) return;
     setLoading(true);
     loadFromDB(roomCode).then(saved => {
-      dispatch({ type: 'LOAD_STATE', payload: saved });
+      if (saved === null) {
+        clearRoomCode();
+        setRoomCode(null);
+        setRoomError('この合言葉は見つかりませんでした');
+        setLoading(false);
+      } else {
+        dispatch({ type: 'LOAD_STATE', payload: saved });
+        setRoomError(null);
+        setLoading(false);
+      }
+    }).catch(() => {
+      clearRoomCode();
+      setRoomCode(null);
+      setRoomError('接続エラーが発生しました。もう一度お試しください。');
       setLoading(false);
     });
   }, [roomCode]);
@@ -111,7 +125,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   if (!roomCode && !isAdmin) {
-    return <RoomEntry onEnter={enterRoom} />;
+    return <RoomEntry onEnter={enterRoom} error={roomError} />;
   }
 
   if (loading) {
