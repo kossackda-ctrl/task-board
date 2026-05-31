@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useReducer, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AppState, Task, Project, MemoEntry, DEFAULT_STATE, uid } from '@/lib/store';
-import { loadFromDB, saveToDB, getSavedRoomCode, saveRoomCode, clearRoomCode } from '@/lib/firebase';
+import { loadFromDB, saveToDB } from '@/lib/firebase';
 import RoomEntry from '@/components/RoomEntry';
 
 type Action =
@@ -64,7 +64,6 @@ const AppContext = createContext<{
   state: AppState;
   dispatch: React.Dispatch<Action>;
   roomCode: string;
-  changeRoom: () => void;
 } | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -72,24 +71,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = pathname === '/admin';
   const [state, dispatch] = useReducer(reducer, DEFAULT_STATE);
   const [roomCode, setRoomCode] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [roomError, setRoomError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const saved = getSavedRoomCode();
-    if (saved) {
-      setRoomCode(saved);
-    } else {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     if (!roomCode) return;
     setLoading(true);
     loadFromDB(roomCode).then(saved => {
       if (saved === null) {
-        clearRoomCode();
         setRoomCode(null);
         setRoomError('この合言葉は見つかりませんでした');
         setLoading(false);
@@ -99,7 +88,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     }).catch(() => {
-      clearRoomCode();
       setRoomCode(null);
       setRoomError('接続エラーが発生しました。もう一度お試しください。');
       setLoading(false);
@@ -113,15 +101,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [state, loading, roomCode]);
 
   const enterRoom = (code: string) => {
-    saveRoomCode(code);
     setRoomCode(code);
-  };
-
-  const changeRoom = () => {
-    clearRoomCode();
-    setRoomCode(null);
-    dispatch({ type: 'LOAD_STATE', payload: DEFAULT_STATE });
-    setLoading(false);
   };
 
   if (!roomCode && !isAdmin) {
@@ -137,7 +117,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ state, dispatch, roomCode: roomCode ?? '', changeRoom }}>
+    <AppContext.Provider value={{ state, dispatch, roomCode: roomCode ?? '' }}>
       {children}
     </AppContext.Provider>
   );
