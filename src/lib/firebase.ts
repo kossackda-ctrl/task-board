@@ -1,7 +1,7 @@
 'use client';
 
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, getDocs, deleteDoc, collection } from 'firebase/firestore';
 import { AppState, DEFAULT_STATE } from './store';
 
 const firebaseConfig = {
@@ -46,5 +46,22 @@ export async function saveToDB(roomCode: string, state: AppState): Promise<void>
     await setDoc(doc(db, 'app', roomCode), state);
   } catch {
     // ネットワークエラーは無視
+  }
+}
+
+export async function listAllRooms(): Promise<{ roomCode: string; state: AppState }[]> {
+  try {
+    const snap = await getDocs(collection(db, 'app'));
+    return snap.docs.map(d => ({ roomCode: d.id, state: { ...DEFAULT_STATE, ...d.data() } as AppState }));
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteRoom(roomCode: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'app', roomCode));
+  } catch {
+    // ignore
   }
 }

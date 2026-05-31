@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useReducer, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { AppState, Task, Project, MemoEntry, DEFAULT_STATE, uid } from '@/lib/store';
 import { loadFromDB, saveToDB, getSavedRoomCode, saveRoomCode, clearRoomCode } from '@/lib/firebase';
 import RoomEntry from '@/components/RoomEntry';
@@ -67,6 +68,8 @@ const AppContext = createContext<{
 } | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isAdmin = pathname === '/admin';
   const [state, dispatch] = useReducer(reducer, DEFAULT_STATE);
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -107,7 +110,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   };
 
-  if (!roomCode) {
+  if (!roomCode && !isAdmin) {
     return <RoomEntry onEnter={enterRoom} />;
   }
 
@@ -120,7 +123,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ state, dispatch, roomCode, changeRoom }}>
+    <AppContext.Provider value={{ state, dispatch, roomCode: roomCode ?? '', changeRoom }}>
       {children}
     </AppContext.Provider>
   );
