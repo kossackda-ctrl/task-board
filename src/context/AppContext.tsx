@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useReducer, useState } from 'react';
+import React, { createContext, useContext, useEffect, useReducer, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AppState, Task, Project, MemoEntry, DEFAULT_STATE, uid } from '@/lib/store';
 import { loadFromDB, saveToDB } from '@/lib/firebase';
@@ -73,9 +73,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [roomError, setRoomError] = useState<string | null>(null);
+  const hasLoaded = useRef(false);
 
   useEffect(() => {
     if (!roomCode) return;
+    hasLoaded.current = false;
     setLoading(true);
     loadFromDB(roomCode).then(saved => {
       if (saved === null) {
@@ -84,6 +86,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       } else {
         dispatch({ type: 'LOAD_STATE', payload: saved });
+        hasLoaded.current = true;
         setRoomError(null);
         setLoading(false);
       }
@@ -95,7 +98,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [roomCode]);
 
   useEffect(() => {
-    if (!loading && roomCode) {
+    if (!loading && roomCode && hasLoaded.current) {
       saveToDB(roomCode, state);
     }
   }, [state, loading, roomCode]);
