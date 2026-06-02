@@ -25,6 +25,7 @@ export interface MemoEntry {
   projectId: string;
   text: string;
   createdAt: string;
+  memberName?: string;
 }
 
 export interface ColumnNames {
@@ -40,6 +41,7 @@ export interface AppState {
   stars: number;
   columnNames: ColumnNames;
   adminMessage: { text: string; imageUrl: string };
+  members: string[];
 }
 
 export const DEFAULT_STATE: AppState = {
@@ -49,6 +51,7 @@ export const DEFAULT_STATE: AppState = {
   stars: 0,
   columnNames: { todo: 'やること', doing: 'やっている', done: 'おわった' },
   adminMessage: { text: '', imageUrl: '' },
+  members: [],
 };
 
 const KEY = 'task-board-v1';

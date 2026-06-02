@@ -18,6 +18,8 @@ export default function SettingsPage() {
   const [color, setColor] = useState(COLORS[0]);
   const [emoji, setEmoji] = useState(EMOJIS[0]);
   const [colNames, setColNames] = useState({ ...state.columnNames });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
 
   const addProject = () => {
     const n = name.trim();
@@ -101,16 +103,58 @@ export default function SettingsPage() {
         {/* 既存プロジェクト一覧 */}
         <div className="flex flex-col gap-2">
           {state.projects.map(p => (
-            <div key={p.id} className="flex items-center justify-between bg-indigo-50 rounded-xl px-3 py-2.5">
-              <span className="text-sm font-semibold">
-                <span className="mr-1">{p.emoji}</span>{p.name}
-              </span>
-              <button
-                onClick={() => dispatch({ type: 'DELETE_PROJECT', payload: p.id })}
-                className="text-xs font-bold bg-red-100 hover:bg-red-500 hover:text-white text-red-600 px-3 py-1 rounded-lg transition-colors"
-              >
-                削除
-              </button>
+            <div key={p.id} className="flex items-center gap-2 bg-indigo-50 rounded-xl px-3 py-2.5">
+              {editingId === p.id ? (
+                <>
+                  <span className="mr-1">{p.emoji}</span>
+                  <input
+                    className="flex-1 border-2 border-indigo-300 rounded-lg px-2 py-1 text-sm outline-none focus:border-indigo-500"
+                    value={editingName}
+                    onChange={e => setEditingName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && editingName.trim()) {
+                        dispatch({ type: 'RENAME_PROJECT', payload: { id: p.id, name: editingName.trim() } });
+                        setEditingId(null);
+                      }
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={() => {
+                      if (editingName.trim()) dispatch({ type: 'RENAME_PROJECT', payload: { id: p.id, name: editingName.trim() } });
+                      setEditingId(null);
+                    }}
+                    className="text-xs font-bold bg-indigo-500 text-white px-3 py-1 rounded-lg transition-colors"
+                  >
+                    保存
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="text-xs font-bold bg-gray-200 text-gray-600 px-2 py-1 rounded-lg transition-colors"
+                  >
+                    ✕
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-sm font-semibold flex-1">
+                    <span className="mr-1">{p.emoji}</span>{p.name}
+                  </span>
+                  <button
+                    onClick={() => { setEditingId(p.id); setEditingName(p.name); }}
+                    className="text-xs font-bold bg-indigo-100 hover:bg-indigo-200 text-indigo-600 px-3 py-1 rounded-lg transition-colors"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => dispatch({ type: 'DELETE_PROJECT', payload: p.id })}
+                    className="text-xs font-bold bg-red-100 hover:bg-red-500 hover:text-white text-red-600 px-3 py-1 rounded-lg transition-colors"
+                  >
+                    削除
+                  </button>
+                </>
+              )}
             </div>
           ))}
         </div>

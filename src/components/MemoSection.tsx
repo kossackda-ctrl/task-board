@@ -14,20 +14,33 @@ function isUrl(text: string) {
 }
 
 export default function MemoSection({ projectId, memos }: Props) {
-  const { dispatch } = useApp();
+  const { dispatch, state } = useApp();
   const [text, setText] = useState('');
+  const [selectedMember, setSelectedMember] = useState('');
 
   const save = () => {
     const t = text.trim();
     if (!t) return;
-    dispatch({ type: 'ADD_MEMO', payload: { projectId, text: t } });
+    dispatch({ type: 'ADD_MEMO', payload: { projectId, text: t, memberName: selectedMember } });
     setText('');
   };
 
   return (
-    <div className="border-t-2 border-indigo-100 bg-white px-4 py-3 flex-shrink-0">
+    <div className="border-t-2 border-indigo-100 bg-white px-4 py-3 shrink-0">
       <div className="text-sm font-bold text-indigo-600 mb-2">📌 メモ・URL・コメント</div>
       <div className="flex gap-2">
+        {state.members.length > 0 && (
+          <select
+            className="border-2 border-indigo-200 rounded-xl px-2 py-1 text-xs outline-none focus:border-indigo-500 bg-white text-gray-600"
+            value={selectedMember}
+            onChange={e => setSelectedMember(e.target.value)}
+          >
+            <option value="">名前を選ぶ</option>
+            {state.members.map(m => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        )}
         <textarea
           className="flex-1 border-2 border-indigo-200 rounded-xl px-3 py-2 text-xs resize-none h-14 outline-none focus:border-indigo-500 font-sans text-gray-600"
           placeholder="URLやコメントをここに書こう！"
@@ -45,7 +58,10 @@ export default function MemoSection({ projectId, memos }: Props) {
       {memos.length > 0 && (
         <div className="mt-2 flex flex-col gap-1.5 max-h-20 overflow-y-auto">
           {memos.map(m => (
-            <div key={m.id} className="bg-indigo-50 rounded-lg px-3 py-1.5 text-xs text-gray-600 break-all">
+            <div key={m.id} className="bg-indigo-50 rounded-lg px-3 py-1.5 text-xs text-gray-600 break-all flex gap-1.5 items-start">
+              {m.memberName && (
+                <span className="font-bold text-indigo-700 shrink-0">{m.memberName}:</span>
+              )}
               {isUrl(m.text)
                 ? <span>📎 <a href={m.text} target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline">{m.text}</a></span>
                 : <span>💬 {m.text}</span>

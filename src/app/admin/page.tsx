@@ -1,13 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { listAllRooms, saveToDB, deleteRoom } from '@/lib/firebase';
+import { listAllRooms, saveToDB, deleteRoom, getAdminPassword, setAdminPassword } from '@/lib/firebase';
 import { AppState, DEFAULT_STATE } from '@/lib/store';
 
-const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? '';
+const ENV_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? '';
+const COLORS = ['#ef5350','#42a5f5','#66bb6a','#ffa726','#ab47bc','#26c6da','#ec407a','#8d6e63'];
+const EMOJIS = ['📚','🏠','🔬','⭐','🎯','📌','🎨','🚀','💡','🏆','🦄','🌈'];
 
 export default function AdminPage() {
   const [input, setInput] = useState('');
+  const [loggingIn, setLoggingIn] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [rooms, setRooms] = useState<{ roomCode: string; state: AppState }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -25,9 +28,22 @@ export default function AdminPage() {
   const [editText, setEditText] = useState('');
   const [editImg, setEditImg] = useState('');
 
+  // メンバー管理
+  const [memberRoom, setMemberRoom] = useState<string | null>(null);
+  const [newMember, setNewMember] = useState('');
+
+  // パスワード変更
+  const [showPwChange, setShowPwChange] = useState(false);
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+
   const login = async () => {
-    if (!ADMIN_PASSWORD || input !== ADMIN_PASSWORD) {
+    setLoggingIn(true);
+    const stored = await getAdminPassword();
+    const effective = stored ?? ENV_PASSWORD;
+    if (!effective || input !== effective) {
       alert('パスワードが違います');
+      setLoggingIn(false);
       return;
     }
     setAuthed(true);
@@ -35,6 +51,7 @@ export default function AdminPage() {
     const data = await listAllRooms();
     setRooms(data);
     setLoading(false);
+    setLoggingIn(false);
   };
 
   const handleDelete = async (roomCode: string) => {
@@ -54,17 +71,9 @@ export default function AdminPage() {
     };
     await saveToDB(code, state);
     setRooms(r => [...r, { roomCode: code, state }]);
-    setNewCode('');
-    setNewMsgText('');
-    setNewMsgImg('');
+    setNewCode(''); setNewMsgText(''); setNewMsgImg('');
     setShowCreate(false);
     setCreating(false);
-  };
-
-  const startEditMessage = (roomCode: string, state: AppState) => {
-    setEditingRoom(roomCode);
-    setEditText(state.adminMessage?.text ?? '');
-    setEditImg(state.adminMessage?.imageUrl ?? '');
   };
 
   const handleSaveMessage = async (roomCode: string) => {
@@ -74,6 +83,35 @@ export default function AdminPage() {
     await saveToDB(roomCode, newState);
     setRooms(r => r.map(x => x.roomCode === roomCode ? { ...x, state: newState } : x));
     setEditingRoom(null);
+  };
+
+  const handleAddMember = async (roomCode: string) => {
+    const name = newMember.trim();
+    if (!name) return;
+    const room = rooms.find(r => r.roomCode === roomCode);
+    if (!room) return;
+    if (room.state.members.includes(name)) { alert('同じ名前がすでにあります'); return; }
+    const newState = { ...room.state, members: [...room.state.members, name] };
+    await saveToDB(roomCode, newState);
+    setRooms(r => r.map(x => x.roomCode === roomCode ? { ...x, state: newState } : x));
+    setNewMember('');
+  };
+
+  const handleDeleteMember = async (roomCode: string, name: string) => {
+    const room = rooms.find(r => r.roomCode === roomCode);
+    if (!room) return;
+    const newState = { ...room.state, members: room.state.members.filter(m => m !== name) };
+    await saveToDB(roomCode, newState);
+    setRooms(r => r.map(x => x.roomCode === roomCode ? { ...x, state: newState } : x));
+  };
+
+  const handlePasswordChange = async () => {
+    if (!newPw.trim()) { alert('パスワードを入力してください'); return; }
+    if (newPw !== confirmPw) { alert('パスワードが一致しません'); return; }
+    await setAdminPassword(newPw.trim());
+    alert('パスワードを変更しました');
+    setNewPw(''); setConfirmPw('');
+    setShowPwChange(false);
   };
 
   if (!authed) {
@@ -91,9 +129,10 @@ export default function AdminPage() {
           />
           <button
             onClick={login}
-            className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl text-sm transition-colors"
+            disabled={loggingIn}
+            className="w-full bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm transition-colors"
           >
-            ログイン
+            {loggingIn ? '確認中...' : 'ログイン'}
           </button>
         </div>
       </div>
@@ -115,19 +154,55 @@ export default function AdminPage() {
           <h1 className="text-xl font-extrabold text-gray-700">🔐 管理者パネル</h1>
           <p className="text-sm text-gray-400 mt-0.5">全 {rooms.length} 部屋</p>
         </div>
-        <button
-          onClick={() => setShowCreate(!showCreate)}
-          className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-4 py-2 rounded-xl text-sm transition-colors"
-        >
-          ＋ 新しい部屋を作る
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowPwChange(!showPwChange)}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold px-4 py-2 rounded-xl text-sm transition-colors"
+          >
+            🔑 PW変更
+          </button>
+          <button
+            onClick={() => setShowCreate(!showCreate)}
+            className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-4 py-2 rounded-xl text-sm transition-colors"
+          >
+            ＋ 新しい部屋
+          </button>
+        </div>
       </div>
+
+      {/* パスワード変更 */}
+      {showPwChange && (
+        <div className="bg-white rounded-2xl p-5 mb-6 shadow-sm border-2 border-gray-200">
+          <h2 className="text-sm font-extrabold text-gray-700 mb-4">🔑 パスワードを変更する</h2>
+          <input
+            type="password"
+            className="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-gray-400 mb-3"
+            placeholder="新しいパスワード"
+            value={newPw}
+            onChange={e => setNewPw(e.target.value)}
+          />
+          <input
+            type="password"
+            className="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-gray-400 mb-4"
+            placeholder="もう一度入力"
+            value={confirmPw}
+            onChange={e => setConfirmPw(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <button onClick={handlePasswordChange} className="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">
+              変更する
+            </button>
+            <button onClick={() => setShowPwChange(false)} className="px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-xl text-sm transition-colors">
+              キャンセル
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 新規作成フォーム */}
       {showCreate && (
         <div className="bg-white rounded-2xl p-5 mb-6 shadow-sm border-2 border-indigo-200">
           <h2 className="text-sm font-extrabold text-indigo-700 mb-4">➕ 新しい部屋を作る</h2>
-
           <label className="text-xs font-bold text-gray-500 block mb-1">合言葉</label>
           <input
             className="w-full border-2 border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 mb-4"
@@ -135,16 +210,14 @@ export default function AdminPage() {
             value={newCode}
             onChange={e => setNewCode(e.target.value)}
           />
-
           <label className="text-xs font-bold text-gray-500 block mb-1">管理者メッセージ（任意）</label>
           <textarea
             className="w-full border-2 border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 mb-3 resize-none"
             rows={3}
-            placeholder="ユーザーに表示するメッセージを入力..."
+            placeholder="ユーザーに表示するメッセージ..."
             value={newMsgText}
             onChange={e => setNewMsgText(e.target.value)}
           />
-
           <label className="text-xs font-bold text-gray-500 block mb-1">画像URL（任意）</label>
           <input
             className="w-full border-2 border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 mb-4"
@@ -152,19 +225,11 @@ export default function AdminPage() {
             value={newMsgImg}
             onChange={e => setNewMsgImg(e.target.value)}
           />
-
           <div className="flex gap-2">
-            <button
-              onClick={handleCreateRoom}
-              disabled={creating}
-              className="flex-1 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
-            >
+            <button onClick={handleCreateRoom} disabled={creating} className="flex-1 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">
               {creating ? '作成中...' : '作成する'}
             </button>
-            <button
-              onClick={() => setShowCreate(false)}
-              className="px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-xl text-sm transition-colors"
-            >
+            <button onClick={() => setShowCreate(false)} className="px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-xl text-sm transition-colors">
               キャンセル
             </button>
           </div>
@@ -178,31 +243,25 @@ export default function AdminPage() {
         <div className="flex flex-col gap-4">
           {rooms.map(({ roomCode, state }) => (
             <div key={roomCode} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-              {/* 部屋ヘッダー */}
+              {/* ヘッダー */}
               <div className="flex items-center justify-between px-5 py-4">
                 <div>
                   <div className="font-bold text-gray-700">🔑 {roomCode}</div>
                   <div className="text-xs text-gray-400 mt-0.5">
-                    プロジェクト {state.projects.length}件・タスク {state.tasks.length}件・⭐ {state.stars}
+                    プロジェクト {state.projects.length}件・タスク {state.tasks.length}件・メンバー {state.members?.length ?? 0}人
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setExpanded(expanded === roomCode ? null : roomCode)}
-                    className="text-xs font-bold bg-indigo-100 hover:bg-indigo-200 text-indigo-600 px-3 py-1.5 rounded-lg transition-colors"
-                  >
+                <div className="flex gap-2 flex-wrap justify-end">
+                  <button onClick={() => setExpanded(expanded === roomCode ? null : roomCode)} className="text-xs font-bold bg-indigo-100 hover:bg-indigo-200 text-indigo-600 px-3 py-1.5 rounded-lg transition-colors">
                     {expanded === roomCode ? '閉じる' : '詳細'}
                   </button>
-                  <button
-                    onClick={() => startEditMessage(roomCode, state)}
-                    className="text-xs font-bold bg-yellow-100 hover:bg-yellow-200 text-yellow-700 px-3 py-1.5 rounded-lg transition-colors"
-                  >
+                  <button onClick={() => { setEditingRoom(roomCode); setEditText(state.adminMessage?.text ?? ''); setEditImg(state.adminMessage?.imageUrl ?? ''); }} className="text-xs font-bold bg-yellow-100 hover:bg-yellow-200 text-yellow-700 px-3 py-1.5 rounded-lg transition-colors">
                     メッセージ
                   </button>
-                  <button
-                    onClick={() => handleDelete(roomCode)}
-                    className="text-xs font-bold bg-red-100 hover:bg-red-500 hover:text-white text-red-600 px-3 py-1.5 rounded-lg transition-colors"
-                  >
+                  <button onClick={() => setMemberRoom(memberRoom === roomCode ? null : roomCode)} className="text-xs font-bold bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1.5 rounded-lg transition-colors">
+                    メンバー
+                  </button>
+                  <button onClick={() => handleDelete(roomCode)} className="text-xs font-bold bg-red-100 hover:bg-red-500 hover:text-white text-red-600 px-3 py-1.5 rounded-lg transition-colors">
                     削除
                   </button>
                 </div>
@@ -212,32 +271,38 @@ export default function AdminPage() {
               {editingRoom === roomCode && (
                 <div className="border-t border-gray-100 px-5 py-4 bg-yellow-50">
                   <div className="text-xs font-bold text-yellow-700 mb-3">📢 管理者メッセージを編集</div>
-                  <textarea
-                    className="w-full border-2 border-yellow-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-yellow-400 mb-3 resize-none bg-white"
-                    rows={3}
-                    placeholder="ユーザーに表示するメッセージ..."
-                    value={editText}
-                    onChange={e => setEditText(e.target.value)}
-                  />
-                  <input
-                    className="w-full border-2 border-yellow-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-yellow-400 mb-3 bg-white"
-                    placeholder="画像URL（任意）https://..."
-                    value={editImg}
-                    onChange={e => setEditImg(e.target.value)}
-                  />
+                  <textarea className="w-full border-2 border-yellow-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-yellow-400 mb-3 resize-none bg-white" rows={3} value={editText} onChange={e => setEditText(e.target.value)} placeholder="メッセージ..." />
+                  <input className="w-full border-2 border-yellow-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-yellow-400 mb-3 bg-white" value={editImg} onChange={e => setEditImg(e.target.value)} placeholder="画像URL（任意）" />
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => handleSaveMessage(roomCode)}
-                      className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 rounded-xl text-sm transition-colors"
-                    >
-                      保存する
-                    </button>
-                    <button
-                      onClick={() => setEditingRoom(null)}
-                      className="px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-xl text-sm transition-colors"
-                    >
-                      キャンセル
-                    </button>
+                    <button onClick={() => handleSaveMessage(roomCode)} className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 rounded-xl text-sm transition-colors">保存する</button>
+                    <button onClick={() => setEditingRoom(null)} className="px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-xl text-sm transition-colors">キャンセル</button>
+                  </div>
+                </div>
+              )}
+
+              {/* メンバー管理 */}
+              {memberRoom === roomCode && (
+                <div className="border-t border-gray-100 px-5 py-4 bg-green-50">
+                  <div className="text-xs font-bold text-green-700 mb-3">👥 メンバーを管理する</div>
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      className="flex-1 border-2 border-green-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-green-400 bg-white"
+                      placeholder="名前を入力..."
+                      value={newMember}
+                      onChange={e => setNewMember(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleAddMember(roomCode); }}
+                    />
+                    <button onClick={() => handleAddMember(roomCode)} className="bg-green-500 hover:bg-green-600 text-white font-bold px-4 rounded-xl text-sm transition-colors">追加</button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(state.members ?? []).length === 0 ? (
+                      <span className="text-xs text-gray-400">メンバーなし</span>
+                    ) : (state.members ?? []).map(m => (
+                      <div key={m} className="flex items-center gap-1 bg-white border border-green-200 rounded-lg px-3 py-1">
+                        <span className="text-sm text-gray-700">{m}</span>
+                        <button onClick={() => handleDeleteMember(roomCode, m)} className="text-gray-400 hover:text-red-500 text-xs font-bold ml-1">✕</button>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -252,21 +317,16 @@ export default function AdminPage() {
                     </div>
                   )}
                   {state.projects.length === 0 ? (
-                    <div className="text-xs text-gray-400">プロジェクトなし（ユーザーが追加できます）</div>
+                    <div className="text-xs text-gray-400">プロジェクトなし</div>
                   ) : state.projects.map(p => (
                     <div key={p.id} className="mb-4">
-                      <div
-                        className="inline-flex items-center gap-1.5 text-white font-bold px-3 py-1 rounded-lg text-xs mb-2"
-                        style={{ background: p.color }}
-                      >
+                      <div className="inline-flex items-center gap-1.5 text-white font-bold px-3 py-1 rounded-lg text-xs mb-2" style={{ background: p.color }}>
                         {p.emoji} {p.name}
                       </div>
                       <div className="flex flex-col gap-1">
                         {state.tasks.filter(t => t.projectId === p.id).map(t => (
                           <div key={t.id} className="flex items-center gap-2 text-xs text-gray-600 bg-white rounded-lg px-3 py-1.5">
-                            <span className={`w-2 h-2 rounded-full shrink-0 ${
-                              t.status === 'done' ? 'bg-green-400' : t.status === 'doing' ? 'bg-yellow-400' : 'bg-gray-300'
-                            }`} />
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${t.status === 'done' ? 'bg-green-400' : t.status === 'doing' ? 'bg-yellow-400' : 'bg-gray-300'}`} />
                             {t.title}
                             {t.assignee && <span className="text-gray-400 ml-auto">{t.assignee}</span>}
                           </div>

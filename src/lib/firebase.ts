@@ -61,3 +61,17 @@ export async function deleteRoom(roomCode: string): Promise<void> {
     // ignore
   }
 }
+
+export async function getAdminPassword(): Promise<string | null> {
+  try {
+    const snap = await getDoc(doc(db, 'config', 'admin'));
+    if (!snap.exists()) return null;
+    return (snap.data().password as string) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setAdminPassword(password: string): Promise<void> {
+  await setDoc(doc(db, 'config', 'admin'), { password });
+}

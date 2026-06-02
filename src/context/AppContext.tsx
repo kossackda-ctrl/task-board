@@ -16,7 +16,8 @@ type Action =
   | { type: 'ADD_MEMO'; payload: Omit<MemoEntry, 'id' | 'createdAt'> }
   | { type: 'SET_COLUMN_NAMES'; payload: AppState['columnNames'] }
   | { type: 'LOAD_STATE'; payload: AppState }
-  | { type: 'RESET_STARS' };
+  | { type: 'RESET_STARS' }
+  | { type: 'RENAME_PROJECT'; payload: { id: string; name: string } };
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -55,6 +56,13 @@ function reducer(state: AppState, action: Action): AppState {
       return action.payload;
     case 'RESET_STARS':
       return { ...state, stars: 0 };
+    case 'RENAME_PROJECT':
+      return {
+        ...state,
+        projects: state.projects.map(p =>
+          p.id === action.payload.id ? { ...p, name: action.payload.name } : p
+        ),
+      };
     default:
       return state;
   }
