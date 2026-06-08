@@ -300,12 +300,26 @@ export default function SettingsPage() {
           </div>
         )}
 
-        <button
-          onClick={() => dispatch({ type: 'SET_ANNUAL_SCHEDULE', payload: scheduleUrl })}
-          className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
-        >
-          保存する
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => dispatch({ type: 'SET_ANNUAL_SCHEDULE', payload: scheduleUrl })}
+            className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
+          >
+            保存する
+          </button>
+          {state.annualScheduleUrl && (
+            <button
+              onClick={() => {
+                dispatch({ type: 'SET_ANNUAL_SCHEDULE', payload: '' });
+                setScheduleUrl('');
+                setScheduleFileName('');
+              }}
+              className="bg-red-100 hover:bg-red-500 hover:text-white text-red-600 font-bold py-2.5 px-4 rounded-xl text-sm transition-colors"
+            >
+              削除
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 列名カスタマイズ */}
