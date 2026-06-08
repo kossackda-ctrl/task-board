@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
 import { getLevel } from '@/lib/levels';
@@ -19,6 +19,48 @@ export default function SettingsPage() {
   const [emoji, setEmoji] = useState(EMOJIS[0]);
   const [colNames, setColNames] = useState({ ...state.columnNames });
   const [scheduleUrl, setScheduleUrl] = useState(state.annualScheduleUrl ?? '');
+  const [scheduleFileName, setScheduleFileName] = useState('');
+  const [draggingOver, setDraggingOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleScheduleFile = useCallback((file: File) => {
+    const isImage = file.type.startsWith('image/');
+    const isPdf = file.type === 'application/pdf';
+    if (!isImage && !isPdf) return;
+    setScheduleFileName(file.name);
+    if (isImage) {
+      const img = new window.Image();
+      const objUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxW = 1400;
+        const scale = Math.min(1, maxW / img.width);
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        setScheduleUrl(canvas.toDataURL('image/jpeg', 0.82));
+        URL.revokeObjectURL(objUrl);
+      };
+      img.src = objUrl;
+    } else {
+      const reader = new FileReader();
+      reader.onload = e => setScheduleUrl((e.target?.result as string) ?? '');
+      reader.readAsDataURL(file);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: ClipboardEvent) => {
+      if (!e.clipboardData) return;
+      const imgItem = Array.from(e.clipboardData.items).find(i => i.type.startsWith('image/'));
+      if (imgItem) {
+        const file = imgItem.getAsFile();
+        if (file) { setScheduleFileName('クリップボードから貼り付け'); handleScheduleFile(file); }
+      }
+    };
+    window.addEventListener('paste', handler);
+    return () => window.removeEventListener('paste', handler);
+  }, [handleScheduleFile]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
@@ -189,20 +231,77 @@ export default function SettingsPage() {
         <div className="text-xs text-gray-400 mt-0.5">現在の合言葉</div>
       </div>
 
-      {/* 年間予定URL */}
+      {/* 年間予定 */}
       <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm">
         <h2 className="text-sm font-extrabold text-indigo-700 mb-4 pb-2 border-b-2 border-indigo-100">
           📅 年間予定の画像・PDF
         </h2>
-        <label className="text-xs font-bold text-gray-500 block mb-1">画像またはPDFのURL</label>
+
+        {/* ドラッグ&ドロップゾーン */}
+        <div
+          className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors mb-3 ${
+            draggingOver
+              ? 'border-indigo-500 bg-indigo-50'
+              : 'border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50/50'
+          }`}
+          onDragOver={e => { e.preventDefault(); setDraggingOver(true); }}
+          onDragLeave={() => setDraggingOver(false)}
+          onDrop={e => {
+            e.preventDefault();
+            setDraggingOver(false);
+            const file = e.dataTransfer.files[0];
+            if (file) { setScheduleFileName(file.name); handleScheduleFile(file); }
+          }}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <div className="text-3xl mb-2">📎</div>
+          <div className="text-sm font-bold text-gray-600">
+            {scheduleFileName || 'ここにファイルをドラッグ&ドロップ'}
+          </div>
+          <div className="text-xs text-gray-400 mt-1">クリックして選択 ／ 画像のコピペ（Ctrl+V）も対応</div>
+          <div className="text-xs text-gray-400">JPG・PNG・PDF</div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,.pdf"
+            className="hidden"
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) { setScheduleFileName(file.name); handleScheduleFile(file); }
+              e.target.value = '';
+            }}
+          />
+        </div>
+
+        {/* URL で指定（補助） */}
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-xs text-gray-400 font-bold shrink-0">または URL で指定</span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
         <input
           className="w-full border-2 border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 mb-3"
-          value={scheduleUrl}
-          onChange={e => setScheduleUrl(e.target.value)}
+          value={scheduleUrl.startsWith('data:') ? '' : scheduleUrl}
+          onChange={e => { setScheduleUrl(e.target.value); setScheduleFileName(''); }}
           placeholder="https://..."
         />
+
+        {/* プレビュー */}
+        {scheduleUrl && (
+          <div className="mb-3">
+            <div className="text-xs font-bold text-gray-400 mb-1">プレビュー</div>
+            {scheduleUrl.startsWith('data:application/pdf') || (!scheduleUrl.startsWith('data:') && scheduleUrl.toLowerCase().includes('.pdf')) ? (
+              <div className="bg-gray-100 rounded-lg px-3 py-2 text-xs text-gray-500 flex items-center gap-2">
+                📄 PDFファイルが設定されています
+              </div>
+            ) : (
+              <img src={scheduleUrl} alt="プレビュー" className="max-h-32 rounded-lg border border-gray-200 object-contain" />
+            )}
+          </div>
+        )}
+
         <button
-          onClick={() => dispatch({ type: 'SET_ANNUAL_SCHEDULE', payload: scheduleUrl.trim() })}
+          onClick={() => dispatch({ type: 'SET_ANNUAL_SCHEDULE', payload: scheduleUrl })}
           className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
         >
           保存する

@@ -17,7 +17,7 @@ const EMPTY: Omit<Task, 'id' | 'projectId'> = {
 };
 
 export default function CardModal({ task, projectId, defaultStatus = 'todo', onClose, onComplete }: CardModalProps) {
-  const { dispatch } = useApp();
+  const { dispatch, state } = useApp();
   const [form, setForm] = useState(task ? { ...task } : { ...EMPTY, status: defaultStatus });
 
   useEffect(() => {
@@ -65,11 +65,22 @@ export default function CardModal({ task, projectId, defaultStatus = 'todo', onC
         />
 
         <label className="block text-xs font-bold text-gray-500 mb-1">担当者</label>
-        <input
-          className="w-full border-2 border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 mb-3"
-          value={form.assignee} onChange={e => set('assignee', e.target.value)}
-          placeholder="担当者の名前"
-        />
+        {state.members.length > 0 ? (
+          <select
+            className="w-full border-2 border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 mb-3 cursor-pointer"
+            value={form.assignee}
+            onChange={e => set('assignee', e.target.value)}
+          >
+            <option value="">（なし）</option>
+            {state.members.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        ) : (
+          <input
+            className="w-full border-2 border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 mb-3"
+            value={form.assignee} onChange={e => set('assignee', e.target.value)}
+            placeholder="担当者の名前"
+          />
+        )}
 
         <label className="block text-xs font-bold text-gray-500 mb-1">開始日 → 終了日</label>
         <div className="flex gap-2 mb-3">

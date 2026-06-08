@@ -66,7 +66,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* ヘッダー */}
       <div className="shrink-0" style={{ background: project.color }}>
         <div className="flex items-center justify-between px-4 py-3 text-white">

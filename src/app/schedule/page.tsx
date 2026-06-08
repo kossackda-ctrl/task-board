@@ -6,7 +6,7 @@ import { useApp } from '@/context/AppContext';
 export default function SchedulePage() {
   const { state } = useApp();
   const url = state.annualScheduleUrl ?? '';
-  const isPdf = url.toLowerCase().includes('.pdf');
+  const isPdf = url.startsWith('data:application/pdf') || (!url.startsWith('data:') && url.toLowerCase().includes('.pdf'));
 
   return (
     <div className="flex flex-col h-screen">
