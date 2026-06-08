@@ -94,7 +94,7 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
       {/* メインエリア */}
       <div className="flex flex-1 min-h-0">
         {/* カラム */}
-        <div className="flex gap-3 p-3 overflow-x-auto flex-1 min-w-0">
+        <div className="flex gap-3 p-3 overflow-x-auto flex-1 md:flex-none md:shrink-0">
           {cols.map(col => {
             const colTasks = tasks.filter(t => t.status === col.status);
             return (
@@ -143,14 +143,21 @@ export default function BoardPage({ params }: { params: Promise<{ id: string }> 
           })}
         </div>
 
+        {/* メモ欄 (PC: カンバンとガントの間) */}
+        <div className="flex-1 min-w-48 border-l-2 border-indigo-100 bg-white hidden md:flex flex-col overflow-hidden">
+          <MemoSection projectId={id} memos={memos} fullHeight />
+        </div>
+
         {/* ガントチャート */}
         <div className="w-80 min-w-80 border-l-2 border-indigo-100 bg-white hidden md:flex flex-col overflow-hidden">
           <GanttChart tasks={tasks} />
         </div>
       </div>
 
-      {/* メモ欄 */}
-      <MemoSection projectId={id} memos={memos} />
+      {/* メモ欄 (モバイルのみ) */}
+      <div className="md:hidden">
+        <MemoSection projectId={id} memos={memos} />
+      </div>
 
       {/* モーダル */}
       {modalOpen && (

@@ -86,6 +86,24 @@ export default function Home() {
           ＋ 新しいプロジェクトを作る
         </div>
       </Link>
+
+      {/* クイックアクセス */}
+      <div className="mt-6 grid grid-cols-2 gap-4">
+        <Link href="/minutes">
+          <div className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col items-center gap-2 text-center">
+            <span className="text-3xl">📝</span>
+            <span className="font-bold text-sm text-gray-700">議事録</span>
+            <span className="text-xs text-gray-400">活動記録を残す</span>
+          </div>
+        </Link>
+        <Link href="/schedule">
+          <div className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col items-center gap-2 text-center">
+            <span className="text-3xl">📅</span>
+            <span className="font-bold text-sm text-gray-700">年間予定</span>
+            <span className="text-xs text-gray-400">スケジュールを確認</span>
+          </div>
+        </Link>
+      </div>
     </div>
   );
 }

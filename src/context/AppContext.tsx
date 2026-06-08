@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useReducer, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { AppState, Task, Project, MemoEntry, DEFAULT_STATE, uid } from '@/lib/store';
+import { AppState, Task, Project, MemoEntry, MinuteEntry, DEFAULT_STATE, uid } from '@/lib/store';
 import { loadFromDB, saveToDB } from '@/lib/firebase';
 import RoomEntry from '@/components/RoomEntry';
 
@@ -17,7 +17,11 @@ type Action =
   | { type: 'SET_COLUMN_NAMES'; payload: AppState['columnNames'] }
   | { type: 'LOAD_STATE'; payload: AppState }
   | { type: 'RESET_STARS' }
-  | { type: 'RENAME_PROJECT'; payload: { id: string; name: string } };
+  | { type: 'RENAME_PROJECT'; payload: { id: string; name: string } }
+  | { type: 'ADD_MINUTE'; payload: Omit<MinuteEntry, 'id' | 'createdAt'> }
+  | { type: 'UPDATE_MINUTE'; payload: MinuteEntry }
+  | { type: 'DELETE_MINUTE'; payload: string }
+  | { type: 'SET_ANNUAL_SCHEDULE'; payload: string };
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -63,6 +67,17 @@ function reducer(state: AppState, action: Action): AppState {
           p.id === action.payload.id ? { ...p, name: action.payload.name } : p
         ),
       };
+    case 'ADD_MINUTE':
+      return {
+        ...state,
+        minutes: [{ ...action.payload, id: uid(), createdAt: new Date().toISOString() }, ...(state.minutes ?? [])],
+      };
+    case 'UPDATE_MINUTE':
+      return { ...state, minutes: (state.minutes ?? []).map(m => m.id === action.payload.id ? action.payload : m) };
+    case 'DELETE_MINUTE':
+      return { ...state, minutes: (state.minutes ?? []).filter(m => m.id !== action.payload) };
+    case 'SET_ANNUAL_SCHEDULE':
+      return { ...state, annualScheduleUrl: action.payload };
     default:
       return state;
   }

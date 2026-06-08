@@ -18,6 +18,7 @@ export default function SettingsPage() {
   const [color, setColor] = useState(COLORS[0]);
   const [emoji, setEmoji] = useState(EMOJIS[0]);
   const [colNames, setColNames] = useState({ ...state.columnNames });
+  const [scheduleUrl, setScheduleUrl] = useState(state.annualScheduleUrl ?? '');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
@@ -186,6 +187,26 @@ export default function SettingsPage() {
         </h2>
         <div className="text-sm font-bold text-gray-700">{roomCode}</div>
         <div className="text-xs text-gray-400 mt-0.5">現在の合言葉</div>
+      </div>
+
+      {/* 年間予定URL */}
+      <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm">
+        <h2 className="text-sm font-extrabold text-indigo-700 mb-4 pb-2 border-b-2 border-indigo-100">
+          📅 年間予定の画像・PDF
+        </h2>
+        <label className="text-xs font-bold text-gray-500 block mb-1">画像またはPDFのURL</label>
+        <input
+          className="w-full border-2 border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 mb-3"
+          value={scheduleUrl}
+          onChange={e => setScheduleUrl(e.target.value)}
+          placeholder="https://..."
+        />
+        <button
+          onClick={() => dispatch({ type: 'SET_ANNUAL_SCHEDULE', payload: scheduleUrl.trim() })}
+          className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
+        >
+          保存する
+        </button>
       </div>
 
       {/* 列名カスタマイズ */}

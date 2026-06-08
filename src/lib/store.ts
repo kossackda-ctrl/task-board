@@ -28,6 +28,14 @@ export interface MemoEntry {
   memberName?: string;
 }
 
+export interface MinuteEntry {
+  id: string;
+  date: string;
+  title: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface ColumnNames {
   todo: string;
   doing: string;
@@ -42,6 +50,8 @@ export interface AppState {
   columnNames: ColumnNames;
   adminMessage: { text: string; imageUrl: string };
   members: string[];
+  minutes: MinuteEntry[];
+  annualScheduleUrl: string;
 }
 
 export const DEFAULT_STATE: AppState = {
@@ -52,6 +62,8 @@ export const DEFAULT_STATE: AppState = {
   columnNames: { todo: 'やること', doing: 'やっている', done: 'おわった' },
   adminMessage: { text: '', imageUrl: '' },
   members: [],
+  minutes: [],
+  annualScheduleUrl: '',
 };
 
 const KEY = 'task-board-v1';
