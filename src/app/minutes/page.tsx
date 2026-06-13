@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
 import { MinuteEntry } from '@/lib/store';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 export default function MinutesPage() {
   const { state, dispatch } = useApp();
@@ -15,6 +16,7 @@ export default function MinutesPage() {
   const [formTitle, setFormTitle] = useState('');
   const [formContent, setFormContent] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MinuteEntry | null>(null);
 
   const openNew = () => {
     setEditing(null);
@@ -42,10 +44,6 @@ export default function MinutesPage() {
     setModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm('この議事録を削除しますか？')) return;
-    dispatch({ type: 'DELETE_MINUTE', payload: id });
-  };
 
   const sorted = [...minutes].sort((a, b) => b.date.localeCompare(a.date));
 
@@ -97,7 +95,7 @@ export default function MinutesPage() {
                       ✏️ 編集
                     </button>
                     <button
-                      onClick={() => handleDelete(m.id)}
+                      onClick={() => setDeleteTarget(m)}
                       className="text-xs font-bold bg-red-100 hover:bg-red-500 hover:text-white text-red-600 px-3 py-1.5 rounded-lg transition-colors"
                     >
                       削除
@@ -167,6 +165,18 @@ export default function MinutesPage() {
           </div>
         </div>
       )}
+
+      {/* 削除確認 */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={`「${deleteTarget?.title ?? ''}」を削除しますか？`}
+        message={'（削除から1日以内なら管理者が復旧できます）'}
+        onConfirm={() => {
+          if (deleteTarget) dispatch({ type: 'DELETE_MINUTE', payload: deleteTarget.id });
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

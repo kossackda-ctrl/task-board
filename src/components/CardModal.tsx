@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Task, TaskStatus } from '@/lib/store';
 import { useApp } from '@/context/AppContext';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 interface CardModalProps {
   task: Task | null;
@@ -13,25 +14,47 @@ interface CardModalProps {
 }
 
 const EMPTY: Omit<Task, 'id' | 'projectId'> = {
-  title: '', assignee: '', startDate: '', endDate: '', memo: '', status: 'todo',
+  title: '', assignee: '', assignees: [], startDate: '', endDate: '', memo: '', status: 'todo',
 };
+
+function taskToForm(task: Task | null, defaultStatus: TaskStatus) {
+  if (!task) return { ...EMPTY, status: defaultStatus };
+  return { ...task, assignees: task.assignees ?? (task.assignee ? [task.assignee] : []) };
+}
 
 export default function CardModal({ task, projectId, defaultStatus = 'todo', onClose, onComplete }: CardModalProps) {
   const { dispatch, state } = useApp();
-  const [form, setForm] = useState(task ? { ...task } : { ...EMPTY, status: defaultStatus });
+  const [form, setForm] = useState(taskToForm(task, defaultStatus));
+  const [assigneeText, setAssigneeText] = useState(
+    task ? (task.assignees ?? (task.assignee ? [task.assignee] : [])).join('、') : ''
+  );
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
-    setForm(task ? { ...task } : { ...EMPTY, status: defaultStatus });
+    setForm(taskToForm(task, defaultStatus));
+    setAssigneeText(task ? (task.assignees ?? (task.assignee ? [task.assignee] : [])).join('、') : '');
   }, [task, defaultStatus]);
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
+  const toggleAssignee = (name: string) =>
+    setForm(f => ({
+      ...f,
+      assignees: f.assignees.includes(name)
+        ? f.assignees.filter(a => a !== name)
+        : [...f.assignees, name],
+    }));
+
   const save = () => {
     if (!form.title.trim()) return;
+    const assignees = state.members.length > 0
+      ? form.assignees
+      : assigneeText.split(/[、,，\s]+/).filter(Boolean);
+    const payload = { ...form, assignees, assignee: assignees.join('、') };
     if (task) {
-      dispatch({ type: 'UPDATE_TASK', payload: { ...form, id: task.id, projectId } as Task });
+      dispatch({ type: 'UPDATE_TASK', payload: { ...payload, id: task.id, projectId } as Task });
     } else {
-      dispatch({ type: 'ADD_TASK', payload: { ...form, projectId } as Omit<Task, 'id'> });
+      dispatch({ type: 'ADD_TASK', payload: { ...payload, projectId } as Omit<Task, 'id'> });
     }
     onClose();
   };
@@ -46,6 +69,7 @@ export default function CardModal({ task, projectId, defaultStatus = 'todo', onC
 
   const del = () => {
     if (task) dispatch({ type: 'DELETE_TASK', payload: task.id });
+    setConfirmDelete(false);
     onClose();
   };
 
@@ -64,21 +88,32 @@ export default function CardModal({ task, projectId, defaultStatus = 'todo', onC
           placeholder="タスク名を入力"
         />
 
-        <label className="block text-xs font-bold text-gray-500 mb-1">担当者</label>
+        <label className="block text-xs font-bold text-gray-500 mb-1">担当者（複数選べます）</label>
         {state.members.length > 0 ? (
-          <select
-            className="w-full border-2 border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 mb-3 cursor-pointer"
-            value={form.assignee}
-            onChange={e => set('assignee', e.target.value)}
-          >
-            <option value="">（なし）</option>
-            {state.members.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {state.members.map(m => {
+              const selected = form.assignees.includes(m);
+              return (
+                <button
+                  type="button"
+                  key={m}
+                  onClick={() => toggleAssignee(m)}
+                  className={`text-xs font-bold px-3 py-1.5 rounded-full border-2 transition-colors ${
+                    selected
+                      ? 'bg-indigo-500 border-indigo-500 text-white'
+                      : 'bg-white border-indigo-200 text-gray-500 hover:border-indigo-400'
+                  }`}
+                >
+                  {selected ? '✓ ' : ''}{m}
+                </button>
+              );
+            })}
+          </div>
         ) : (
           <input
             className="w-full border-2 border-indigo-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 mb-3"
-            value={form.assignee} onChange={e => set('assignee', e.target.value)}
-            placeholder="担当者の名前"
+            value={assigneeText} onChange={e => setAssigneeText(e.target.value)}
+            placeholder="名前を「、」区切りで入力（例: たろう、はなこ）"
           />
         )}
 
@@ -113,7 +148,7 @@ export default function CardModal({ task, projectId, defaultStatus = 'todo', onC
 
         <div className="flex gap-2 flex-wrap justify-end">
           {task && (
-            <button onClick={del} className="text-xs text-red-400 hover:text-red-600 px-3 py-2 font-bold">
+            <button onClick={() => setConfirmDelete(true)} className="text-xs text-red-400 hover:text-red-600 px-3 py-2 font-bold">
               削除
             </button>
           )}
@@ -129,6 +164,15 @@ export default function CardModal({ task, projectId, defaultStatus = 'todo', onC
             保存する
           </button>
         </div>
+
+        {/* 削除確認 */}
+        <ConfirmDialog
+          open={confirmDelete}
+          title={`「${task?.title ?? ''}」を削除しますか？`}
+          message={'（削除から1日以内なら管理者が復旧できます）'}
+          onConfirm={del}
+          onCancel={() => setConfirmDelete(false)}
+        />
       </div>
     </div>
   );

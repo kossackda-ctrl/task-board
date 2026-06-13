@@ -1,8 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import { listAllRooms, saveToDB, deleteRoom, getAdminPassword, setAdminPassword } from '@/lib/firebase';
-import { AppState, DEFAULT_STATE } from '@/lib/store';
+import { listAllRooms, saveToDB, deleteRoom, loadFromDB, getAdminPassword, setAdminPassword } from '@/lib/firebase';
+import { AppState, DEFAULT_STATE, TrashItem, purgeTrash, TRASH_RETENTION_MS } from '@/lib/store';
+
+function trashLabel(item: TrashItem): string {
+  if (item.kind === 'project') {
+    return `📁 プロジェクト「${item.project.emoji} ${item.project.name}」（タスク${item.tasks.length}件・メモ${item.memos.length}件を含む）`;
+  }
+  if (item.kind === 'task') return `📝 タスク「${item.task.title}」`;
+  return `📋 議事録「${item.minute.title}」`;
+}
+
+function remainingLabel(item: TrashItem): string {
+  const msLeft = new Date(item.deletedAt).getTime() + TRASH_RETENTION_MS - Date.now();
+  if (msLeft <= 0) return 'まもなく消去';
+  const hours = Math.floor(msLeft / (60 * 60 * 1000));
+  const minutes = Math.floor((msLeft % (60 * 60 * 1000)) / (60 * 1000));
+  return hours > 0 ? `あと約${hours}時間` : `あと約${minutes}分`;
+}
 
 const ENV_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? '';
 const COLORS = ['#ef5350','#42a5f5','#66bb6a','#ffa726','#ab47bc','#26c6da','#ec407a','#8d6e63'];
@@ -31,6 +47,10 @@ export default function AdminPage() {
   // メンバー管理
   const [memberRoom, setMemberRoom] = useState<string | null>(null);
   const [newMember, setNewMember] = useState('');
+
+  // ゴミ箱（削除データの復旧）
+  const [trashRoom, setTrashRoom] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState<string | null>(null);
 
   // パスワード変更
   const [showPwChange, setShowPwChange] = useState(false);
@@ -103,6 +123,39 @@ export default function AdminPage() {
     const newState = { ...room.state, members: room.state.members.filter(m => m !== name) };
     await saveToDB(roomCode, newState);
     setRooms(r => r.map(x => x.roomCode === roomCode ? { ...x, state: newState } : x));
+  };
+
+  const handleRestore = async (roomCode: string, itemId: string) => {
+    setRestoring(itemId);
+    try {
+      // ユーザー側の最新状態を取得してから復元する（古い画面表示による上書きを防ぐ）
+      const fresh = await loadFromDB(roomCode);
+      if (!fresh) { alert('部屋のデータが見つかりませんでした'); return; }
+      const item = (fresh.trash ?? []).find(t => t.id === itemId);
+      if (!item) { alert('この項目はすでに消去されたか、復元できません'); return; }
+
+      const newState: AppState = { ...fresh };
+      if (item.kind === 'project') {
+        newState.projects = [...fresh.projects, item.project];
+        newState.tasks = [...fresh.tasks, ...item.tasks];
+        newState.memos = [...item.memos, ...fresh.memos];
+      } else if (item.kind === 'task') {
+        if (!fresh.projects.some(p => p.id === item.task.projectId)) {
+          alert('このタスクのプロジェクトが削除されています。先にプロジェクトを復旧してください。');
+          return;
+        }
+        newState.tasks = [...fresh.tasks, item.task];
+      } else {
+        newState.minutes = [item.minute, ...(fresh.minutes ?? [])];
+      }
+      newState.trash = (fresh.trash ?? []).filter(t => t.id !== item.id);
+
+      await saveToDB(roomCode, newState);
+      setRooms(r => r.map(x => x.roomCode === roomCode ? { ...x, state: newState } : x));
+      alert('復旧しました！');
+    } finally {
+      setRestoring(null);
+    }
   };
 
   const handlePasswordChange = async () => {
@@ -261,6 +314,9 @@ export default function AdminPage() {
                   <button onClick={() => setMemberRoom(memberRoom === roomCode ? null : roomCode)} className="text-xs font-bold bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1.5 rounded-lg transition-colors">
                     メンバー
                   </button>
+                  <button onClick={() => setTrashRoom(trashRoom === roomCode ? null : roomCode)} className="text-xs font-bold bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-1.5 rounded-lg transition-colors">
+                    🗑 ゴミ箱{purgeTrash(state.trash ?? []).length > 0 ? ` (${purgeTrash(state.trash ?? []).length})` : ''}
+                  </button>
                   <button onClick={() => handleDelete(roomCode)} className="text-xs font-bold bg-red-100 hover:bg-red-500 hover:text-white text-red-600 px-3 py-1.5 rounded-lg transition-colors">
                     削除
                   </button>
@@ -307,6 +363,36 @@ export default function AdminPage() {
                 </div>
               )}
 
+              {/* ゴミ箱（削除データの復旧） */}
+              {trashRoom === roomCode && (
+                <div className="border-t border-gray-100 px-5 py-4 bg-orange-50">
+                  <div className="text-xs font-bold text-orange-700 mb-1">🗑 ゴミ箱（削除から24時間以内のデータを復旧できます）</div>
+                  {purgeTrash(state.trash ?? []).length === 0 ? (
+                    <div className="text-xs text-gray-400 mt-2">削除されたデータはありません</div>
+                  ) : (
+                    <div className="flex flex-col gap-2 mt-3">
+                      {purgeTrash(state.trash ?? []).map(item => (
+                        <div key={item.id} className="flex items-center gap-2 bg-white border border-orange-200 rounded-xl px-3 py-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs text-gray-700 font-semibold truncate">{trashLabel(item)}</div>
+                            <div className="text-[10px] text-gray-400 mt-0.5">
+                              {new Date(item.deletedAt).toLocaleString('ja-JP')} に削除・{remainingLabel(item)}で消去
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleRestore(roomCode, item.id)}
+                            disabled={restoring !== null}
+                            className="text-xs font-bold bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors shrink-0"
+                          >
+                            {restoring === item.id ? '復旧中...' : '復旧する'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* 詳細展開 */}
               {expanded === roomCode && (
                 <div className="border-t border-gray-100 px-5 py-4 bg-gray-50">
@@ -328,7 +414,9 @@ export default function AdminPage() {
                           <div key={t.id} className="flex items-center gap-2 text-xs text-gray-600 bg-white rounded-lg px-3 py-1.5">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${t.status === 'done' ? 'bg-green-400' : t.status === 'doing' ? 'bg-yellow-400' : 'bg-gray-300'}`} />
                             {t.title}
-                            {t.assignee && <span className="text-gray-400 ml-auto">{t.assignee}</span>}
+                            {(t.assignees?.length ?? 0) > 0 && (
+                              <span className="text-gray-400 ml-auto">{t.assignees.join('・')}</span>
+                            )}
                           </div>
                         ))}
                         {state.tasks.filter(t => t.projectId === p.id).length === 0 && (

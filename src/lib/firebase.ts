@@ -2,7 +2,7 @@
 
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, getDoc, setDoc, getDocs, deleteDoc, collection } from 'firebase/firestore';
-import { AppState, DEFAULT_STATE } from './store';
+import { AppState, migrateState } from './store';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -34,7 +34,7 @@ export function clearRoomCode(): void {
 export async function loadFromDB(roomCode: string): Promise<AppState | null> {
   const snap = await getDoc(doc(db, 'app', roomCode));
   if (!snap.exists()) return null;
-  return { ...DEFAULT_STATE, ...snap.data() } as AppState;
+  return migrateState(snap.data() as Partial<AppState>);
 }
 
 export async function saveToDB(roomCode: string, state: AppState): Promise<void> {
@@ -48,7 +48,7 @@ export async function saveToDB(roomCode: string, state: AppState): Promise<void>
 export async function listAllRooms(): Promise<{ roomCode: string; state: AppState }[]> {
   try {
     const snap = await getDocs(collection(db, 'app'));
-    return snap.docs.map(d => ({ roomCode: d.id, state: { ...DEFAULT_STATE, ...d.data() } as AppState }));
+    return snap.docs.map(d => ({ roomCode: d.id, state: migrateState(d.data() as Partial<AppState>) }));
   } catch {
     return [];
   }

@@ -4,11 +4,17 @@ import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
 import { getLevel, getNextLevel, getLevelProgress } from '@/lib/levels';
 
+function todayString() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 export default function Home() {
   const { state } = useApp();
   const lv = getLevel(state.stars);
   const next = getNextLevel(state.stars);
   const pct = getLevelProgress(state.stars);
+  const today = todayString();
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
@@ -67,17 +73,42 @@ export default function Home() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 mb-6">
-          {state.projects.map(p => (
-            <Link key={p.id} href={`/board/${p.id}`}>
-              <div
-                className="rounded-2xl p-6 text-center text-white font-bold text-base cursor-pointer shadow-md hover:-translate-y-1 hover:shadow-xl transition-all duration-150 min-h-25 flex flex-col items-center justify-center gap-2"
-                style={{ background: p.color }}
-              >
-                <span className="text-3xl">{p.emoji}</span>
-                {p.name}
-              </div>
-            </Link>
-          ))}
+          {state.projects.map(p => {
+            const pTasks = state.tasks.filter(t => t.projectId === p.id);
+            const doneCount = pTasks.filter(t => t.status === 'done').length;
+            const progressPct = pTasks.length > 0 ? Math.round((doneCount / pTasks.length) * 100) : 0;
+            const hasOverdue = pTasks.some(t => t.status !== 'done' && t.endDate && t.endDate < today);
+            return (
+              <Link key={p.id} href={`/board/${p.id}`}>
+                <div
+                  className="relative rounded-2xl p-6 pb-4 text-center text-white font-bold text-base cursor-pointer shadow-md hover:-translate-y-1 hover:shadow-xl transition-all duration-150 min-h-25 flex flex-col items-center justify-center gap-2"
+                  style={{ background: p.color }}
+                >
+                  {hasOverdue && (
+                    <span className="absolute top-2 right-2 bg-white text-red-500 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow flex items-center gap-0.5">
+                      ⚠️ 期限切れ
+                    </span>
+                  )}
+                  <span className="text-3xl">{p.emoji}</span>
+                  {p.name}
+                  {pTasks.length > 0 && (
+                    <div className="w-full mt-1">
+                      <div className="flex justify-between text-[10px] text-white/85 font-semibold mb-0.5">
+                        <span>進捗</span>
+                        <span>{doneCount}/{pTasks.length} ({progressPct}%)</span>
+                      </div>
+                      <div className="bg-white/30 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className="h-full bg-white rounded-full transition-all duration-500"
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
 
@@ -86,24 +117,6 @@ export default function Home() {
           ＋ 新しいプロジェクトを作る
         </div>
       </Link>
-
-      {/* クイックアクセス */}
-      <div className="mt-6 grid grid-cols-2 gap-4">
-        <Link href="/minutes">
-          <div className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col items-center gap-2 text-center">
-            <span className="text-3xl">📝</span>
-            <span className="font-bold text-sm text-gray-700">議事録</span>
-            <span className="text-xs text-gray-400">活動記録を残す</span>
-          </div>
-        </Link>
-        <Link href="/schedule">
-          <div className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col items-center gap-2 text-center">
-            <span className="text-3xl">📅</span>
-            <span className="font-bold text-sm text-gray-700">年間予定</span>
-            <span className="text-xs text-gray-400">スケジュールを確認</span>
-          </div>
-        </Link>
-      </div>
     </div>
   );
 }

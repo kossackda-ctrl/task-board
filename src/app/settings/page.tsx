@@ -4,6 +4,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
 import { getLevel } from '@/lib/levels';
+import { Project } from '@/lib/store';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 const COLORS = [
   '#ef5350','#42a5f5','#66bb6a','#ffa726','#ab47bc','#26c6da','#ec407a','#8d6e63',
@@ -63,6 +65,8 @@ export default function SettingsPage() {
   }, [handleScheduleFile]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [confirmScheduleDelete, setConfirmScheduleDelete] = useState(false);
 
   const addProject = () => {
     const n = name.trim();
@@ -191,7 +195,7 @@ export default function SettingsPage() {
                     ✏️
                   </button>
                   <button
-                    onClick={() => dispatch({ type: 'DELETE_PROJECT', payload: p.id })}
+                    onClick={() => setDeleteTarget(p)}
                     className="text-xs font-bold bg-red-100 hover:bg-red-500 hover:text-white text-red-600 px-3 py-1 rounded-lg transition-colors"
                   >
                     削除
@@ -309,11 +313,7 @@ export default function SettingsPage() {
           </button>
           {state.annualScheduleUrl && (
             <button
-              onClick={() => {
-                dispatch({ type: 'SET_ANNUAL_SCHEDULE', payload: '' });
-                setScheduleUrl('');
-                setScheduleFileName('');
-              }}
+              onClick={() => setConfirmScheduleDelete(true)}
               className="bg-red-100 hover:bg-red-500 hover:text-white text-red-600 font-bold py-2.5 px-4 rounded-xl text-sm transition-colors"
             >
               削除
@@ -346,6 +346,32 @@ export default function SettingsPage() {
           保存する
         </button>
       </div>
+
+      {/* プロジェクト削除の確認 */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={`「${deleteTarget?.emoji ?? ''} ${deleteTarget?.name ?? ''}」を削除しますか？`}
+        message={'中のタスクとメモもいっしょに削除されます。\n（削除から1日以内なら管理者が復旧できます）'}
+        onConfirm={() => {
+          if (deleteTarget) dispatch({ type: 'DELETE_PROJECT', payload: deleteTarget.id });
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      {/* 年間予定削除の確認 */}
+      <ConfirmDialog
+        open={confirmScheduleDelete}
+        title="年間予定を削除しますか？"
+        message="設定した画像・PDFが消えます。"
+        onConfirm={() => {
+          dispatch({ type: 'SET_ANNUAL_SCHEDULE', payload: '' });
+          setScheduleUrl('');
+          setScheduleFileName('');
+          setConfirmScheduleDelete(false);
+        }}
+        onCancel={() => setConfirmScheduleDelete(false)}
+      />
     </div>
   );
 }

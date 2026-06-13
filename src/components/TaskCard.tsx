@@ -29,6 +29,7 @@ function fmtDate(d: string) {
 
 export default function TaskCard({ task, onClick }: Props) {
   const isDone = task.status === 'done';
+  const assignees = task.assignees ?? (task.assignee ? [task.assignee] : []);
   return (
     <div
       onClick={onClick}
@@ -40,11 +41,11 @@ export default function TaskCard({ task, onClick }: Props) {
         {isDone && (
           <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">✓ 完了</span>
         )}
-        {task.assignee && !isDone && (
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${assigneeColor(task.assignee)}`}>
-            {task.assignee}
+        {!isDone && assignees.map(a => (
+          <span key={a} className={`text-xs font-bold px-2 py-0.5 rounded-full ${assigneeColor(a)}`}>
+            {a}
           </span>
-        )}
+        ))}
         {(task.startDate || task.endDate) && (
           <span className="text-xs text-gray-400">
             📅 {fmtDate(task.startDate)}{task.endDate ? ` → ${fmtDate(task.endDate)}` : ''}

@@ -6,7 +6,9 @@ export interface Task {
   id: string;
   projectId: string;
   title: string;
+  /** 旧データ互換用（表示・編集は assignees を使う） */
   assignee: string;
+  assignees: string[];
   startDate: string;
   endDate: string;
   memo: string;
@@ -42,6 +44,19 @@ export interface ColumnNames {
   done: string;
 }
 
+/** 削除されたデータの一時保管（24時間後に自動消去、管理者画面から復旧可能） */
+export type TrashItem =
+  | { id: string; deletedAt: string; kind: 'project'; project: Project; tasks: Task[]; memos: MemoEntry[] }
+  | { id: string; deletedAt: string; kind: 'task'; task: Task }
+  | { id: string; deletedAt: string; kind: 'minute'; minute: MinuteEntry };
+
+export const TRASH_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+export function purgeTrash(trash: TrashItem[]): TrashItem[] {
+  const cutoff = Date.now() - TRASH_RETENTION_MS;
+  return trash.filter(t => new Date(t.deletedAt).getTime() > cutoff);
+}
+
 export interface AppState {
   projects: Project[];
   tasks: Task[];
@@ -52,6 +67,7 @@ export interface AppState {
   members: string[];
   minutes: MinuteEntry[];
   annualScheduleUrl: string;
+  trash: TrashItem[];
 }
 
 export const DEFAULT_STATE: AppState = {
@@ -64,7 +80,21 @@ export const DEFAULT_STATE: AppState = {
   members: [],
   minutes: [],
   annualScheduleUrl: '',
+  trash: [],
 };
+
+/** 古いデータを最新の形に変換する（assignee → assignees、trash の補完と期限切れ削除） */
+export function migrateState(raw: Partial<AppState>): AppState {
+  const s = { ...DEFAULT_STATE, ...raw };
+  return {
+    ...s,
+    tasks: (s.tasks ?? []).map(t => ({
+      ...t,
+      assignees: t.assignees ?? (t.assignee ? [t.assignee] : []),
+    })),
+    trash: purgeTrash(s.trash ?? []),
+  };
+}
 
 const KEY = 'task-board-v1';
 
@@ -73,7 +103,7 @@ export function loadState(): AppState {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return DEFAULT_STATE;
-    return { ...DEFAULT_STATE, ...JSON.parse(raw) };
+    return migrateState(JSON.parse(raw));
   } catch {
     return DEFAULT_STATE;
   }

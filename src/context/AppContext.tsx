@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useReducer, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { AppState, Task, Project, MemoEntry, MinuteEntry, DEFAULT_STATE, uid } from '@/lib/store';
+import { AppState, Task, Project, MemoEntry, MinuteEntry, TrashItem, DEFAULT_STATE, uid, purgeTrash } from '@/lib/store';
 import { loadFromDB, saveToDB } from '@/lib/firebase';
 import RoomEntry from '@/components/RoomEntry';
 
@@ -23,23 +23,51 @@ type Action =
   | { type: 'DELETE_MINUTE'; payload: string }
   | { type: 'SET_ANNUAL_SCHEDULE'; payload: string };
 
+type TrashInput =
+  | { kind: 'project'; project: Project; tasks: Task[]; memos: MemoEntry[] }
+  | { kind: 'task'; task: Task }
+  | { kind: 'minute'; minute: MinuteEntry };
+
+function addToTrash(state: AppState, item: TrashInput): TrashItem[] {
+  return [
+    { ...item, id: uid(), deletedAt: new Date().toISOString() },
+    ...purgeTrash(state.trash ?? []),
+  ];
+}
+
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'ADD_PROJECT':
       return { ...state, projects: [...state.projects, { ...action.payload, id: uid() }] };
-    case 'DELETE_PROJECT':
+    case 'DELETE_PROJECT': {
+      const project = state.projects.find(p => p.id === action.payload);
+      if (!project) return state;
       return {
         ...state,
         projects: state.projects.filter(p => p.id !== action.payload),
         tasks: state.tasks.filter(t => t.projectId !== action.payload),
         memos: state.memos.filter(m => m.projectId !== action.payload),
+        trash: addToTrash(state, {
+          kind: 'project',
+          project,
+          tasks: state.tasks.filter(t => t.projectId === action.payload),
+          memos: state.memos.filter(m => m.projectId === action.payload),
+        }),
       };
+    }
     case 'ADD_TASK':
       return { ...state, tasks: [...state.tasks, { ...action.payload, id: uid() }] };
     case 'UPDATE_TASK':
       return { ...state, tasks: state.tasks.map(t => t.id === action.payload.id ? action.payload : t) };
-    case 'DELETE_TASK':
-      return { ...state, tasks: state.tasks.filter(t => t.id !== action.payload) };
+    case 'DELETE_TASK': {
+      const task = state.tasks.find(t => t.id === action.payload);
+      if (!task) return state;
+      return {
+        ...state,
+        tasks: state.tasks.filter(t => t.id !== action.payload),
+        trash: addToTrash(state, { kind: 'task', task }),
+      };
+    }
     case 'COMPLETE_TASK': {
       const updated = state.tasks.map(t =>
         t.id === action.payload ? { ...t, status: 'done' as const } : t
@@ -74,8 +102,15 @@ function reducer(state: AppState, action: Action): AppState {
       };
     case 'UPDATE_MINUTE':
       return { ...state, minutes: (state.minutes ?? []).map(m => m.id === action.payload.id ? action.payload : m) };
-    case 'DELETE_MINUTE':
-      return { ...state, minutes: (state.minutes ?? []).filter(m => m.id !== action.payload) };
+    case 'DELETE_MINUTE': {
+      const minute = (state.minutes ?? []).find(m => m.id === action.payload);
+      if (!minute) return state;
+      return {
+        ...state,
+        minutes: (state.minutes ?? []).filter(m => m.id !== action.payload),
+        trash: addToTrash(state, { kind: 'minute', minute }),
+      };
+    }
     case 'SET_ANNUAL_SCHEDULE':
       return { ...state, annualScheduleUrl: action.payload };
     default:
